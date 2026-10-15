@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon RPG Daily Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        rpg: {
+                            dark: '#0f172a',
+                            card: '#1e293b',
+                            border: '#334155',
+                            primary: '#3b82f6',
+                            accent: '#f59e0b',
+                            success: '#10b981',
+                            danger: '#ef4444'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for RPG icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti for Gacha celebration -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .pixel-shadow {
+            box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-rpg-dark text-slate-100 min-h-screen flex flex-col custom-scrollbar">
+
+    <!-- Top Navigation Bar / Status Bar -->
+    <header class="bg-rpg-card border-b border-rpg-border sticky top-0 z-50 px-4 py-3 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <!-- User RPG Status -->
+            <div class="flex items-center space-x-4">
+                <div class="relative">
+                    <div id="user-avatar" class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-xl border-2 border-rpg-border pixel-shadow">
+                        <i class="fa-solid fa-user-shield text-white"></i>
+                    </div>
+                    <span id="user-level-badge" class="absolute -bottom-1 -right-1 bg-amber-500 text-slate-950 font-extrabold text-xs px-1.5 py-0.5 rounded-full border border-slate-900">Lv.1</span>
+                </div>
+                <div>
+                    <h1 id="user-title" class="font-bold text-base md:text-lg tracking-wide text-amber-400 flex items-center gap-2">
+                        新手訓練家 <span id="user-title-name" class="text-xs px-2 py-0.5 bg-blue-900/60 text-blue-300 rounded border border-blue-700">初級</span>
+                    </h1>
+                    <div class="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                        <span>經驗值: <strong id="user-exp" class="text-slate-200">0 / 100</strong></span>
+                        <span>積分: <strong id="user-points" class="text-amber-400 text-sm">0</strong> Pt</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Navigation Tabs -->
+            <nav class="flex items-center gap-1 md:gap-2 overflow-x-auto py-1">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="tab-btn px-3.5 py-2 rounded-lg font-medium text-sm transition bg-blue-600 text-white shadow cursor-pointer">
+                    <i class="fa-solid fa-house-chimney mr-1.5"></i> 每日任務
+                </button>
+                <button onclick="switchTab('gacha')" id="nav-gacha" class="tab-btn px-3.5 py-2 rounded-lg font-medium text-sm transition bg-rpg-border text-slate-300 hover:bg-slate-700 cursor-pointer">
+                    <i class="fa-solid fa-gift mr-1.5"></i> 精靈抽卡
+                </button>
+                <button onclick="switchTab('pokedex')" id="nav-pokedex" class="tab-btn px-3.5 py-2 rounded-lg font-medium text-sm transition bg-rpg-border text-slate-300 hover:bg-slate-700 cursor-pointer">
+                    <i class="fa-solid fa-book mr-1.5"></i> 圖鑑收藏 (<span id="pokedex-count">0</span>/1025)
+                </button>
+                <button onclick="switchTab('history')" id="nav-history" class="tab-btn px-3.5 py-2 rounded-lg font-medium text-sm transition bg-rpg-border text-slate-300 hover:bg-slate-700 cursor-pointer">
+                    <i class="fa-solid fa-clock-rotate-left mr-1.5"></i> 歷史記錄
+                </button>
+                <button onclick="openSettingsModal()" class="px-3.5 py-2 rounded-lg font-medium text-sm transition bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 cursor-pointer" title="設定">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+
+        <!-- 1. Dashboard Tab -->
+        <section id="tab-dashboard" class="tab-content space-y-6">
+            <!-- Daily Progress Overview banner -->
+            <div class="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-blue-800/50 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-extrabold text-blue-200 flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-day text-amber-400"></i> 今日冒險進度
+                    </h2>
+                    <p class="text-sm text-slate-300 mt-1">完成所有每日必做任務（共 6 項），即可領取 <span class="text-amber-300 font-bold">50~80 隨機積分</span>獎勵！每日凌晨 3:00 重置。</p>
+                </div>
+                <div class="w-full md:w-64 bg-slate-900/80 rounded-xl p-3 border border-slate-700">
+                    <div class="flex justify-between text-xs font-semibold mb-1 text-slate-300">
+                        <span>必做任務完成度</span>
+                        <span id="must-do-progress-text">0 / 6</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+                        <div id="must-do-progress-bar" class="bg-gradient-to-r from-blue-500 to-emerald-400 h-full w-0 transition-all duration-500"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Task Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Left & Middle: Must-do Tasks & Diet/Sleep Log -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Must-Do Tasks Card -->
+                    <div class="bg-rpg-card border border-rpg-border rounded-2xl p-5 shadow-lg">
+                        <h3 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2 border-b border-slate-700/60 pb-3">
+                            <i class="fa-solid fa-list-check text-blue-400"></i> 每日必做清單 (6 項)
+                        </h3>
+                        <div class="space-y-4">
+                            <!-- 1. Sleep Check -->
+                            <div class="flex items-center justify-between p-3.5 bg-slate-900/50 rounded-xl border border-slate-800 hover:border-slate-700 transition">
+                                <div class="flex items-center space-x-3">
+                                    <input type="checkbox" id="task-sleep" onchange="handleMustDoChange()" class="w-5 h-5 accent-blue-600 rounded cursor-pointer">
+                                    <div>
+                                        <label for="task-sleep" class="font-semibold text-slate-200 cursor-pointer">睡眠達標檢查</label>
+                                        <p class="text-xs text-slate-400">目標就寢時間：<span id="display-target-sleep" class="text-blue-300 font-medium">00:00 (晚上12點前)</span></p>
+                                    </div>
+                                </div>
+                                <span class="text-xs px-2.5 py-1 bg-slate-800 text-slate-300 rounded-md border border-slate-700 font-mono">必做 #1</span>
+                            </div>
+
+                            <!-- 2. Tidying Check -->
+                            <div class="flex items-center justify-between p-3.5 bg-slate-900/50 rounded-xl border border-slate-800 hover:border-slate-700 transition">
+                                <div class="flex items-center space-x-3">
+                                    <input type="checkbox" id="task-tidy" onchange="handleMustDoChange()" class="w-5 h-5 accent-blue-600 rounded cursor-pointer">
+                                    <div>
+                                        <label for="task-tidy" class="font-semibold text-slate-200 cursor-pointer">環境整潔清理</label>
+                                        <p class="text-xs text-slate-400">執行設定時長：<span id="display-target-tidy" class="text-blue-300 font-medium">10</span> 分鐘</p>
+                                    </div>
+                                </div>
+                                <span class="text-xs px-2.5 py-1 bg-slate-800 text-slate-300 rounded-md border border-slate-700 font-mono">必做 #2</span>
+                            </div>
+
+                            <!-- 3-6. Diet & Calorie Fields (Breakfast, Lunch, Dinner + Optional Exercise Calorie + TDEE) -->
+                            <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="font-bold text-sm text-emerald-400 flex items-center gap-2">
+                                        <i class="fa-solid fa-utensils"></i> 三餐飲食記錄與熱量估算 (共 4 項計算項目)
+                                    </h4>
+                                    <span class="text-xs px-2.5 py-1 bg-emerald-950 text-emerald-300 rounded-md border border-emerald-800 font-mono">必做 #3~#6</span>
+                                </div>
+                                <form id="diet-form" onsubmit="submitDietLog(event)" class="space-y-3 pt-2">
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-medium text-slate-400 mb-1">早餐內容 & 熱量 (kcal)</label>
+                                            <input type="text" id="diet-breakfast" placeholder="例如: 蛋餅+豆漿 (350)" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-slate-400 mb-1">午餐內容 & 熱量 (kcal)</label>
+                                            <input type="text" id="diet-lunch" placeholder="例如: 便當 (700)" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-slate-400 mb-1">晚餐內容 & 熱量 (kcal)</label>
+                                            <input type="text" id="diet-dinner" placeholder="例如: 沙拉+雞胸肉 (500)" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Optional Exercise Calorie Burn Field -->
+                                    <div class="pt-2 border-t border-slate-800">
+                                        <label class="block text-xs font-medium text-slate-400 mb-1">當天運動消耗卡路里 (Optional)</label>
+                                        <input type="number" id="diet-exercise-calories" min="0" placeholder="例如: 300" class="w-full md:w-1/3 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
+                                    </div>
+
+                                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+                                        <div class="text-xs text-slate-300 space-x-3">
+                                            <span>總熱量：<strong id="total-calories-display" class="text-amber-400 font-bold">0</strong> kcal</span>
+                                            <span>TDEE (淨熱量)：<strong id="tdee-display" class="text-emerald-400 font-bold">0</strong> kcal</span>
+                                        </div>
+                                        <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg shadow transition flex items-center gap-1.5 cursor-pointer">
+                                            <i class="fa-solid fa-check"></i> 提交飲食記錄
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Claim Reward Banner -->
+                        <div id="reward-section" class="mt-5 p-4 bg-slate-900/90 border border-dashed border-slate-700 rounded-xl flex items-center justify-between hidden">
+                            <div>
+                                <h4 class="font-bold text-amber-400 text-sm">恭喜完成所有今日必做任務！</h4>
+                                <p class="text-xs text-slate-400">可領取 50~80 隨機冒險積分獎勵。</p>
+                            </div>
+                            <button onclick="claimDailyReward()" id="claim-reward-btn" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm rounded-lg shadow transition cursor-pointer">
+                                領取獎勵
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Weekly Tasks Card -->
+                    <div class="bg-rpg-card border border-rpg-border rounded-2xl p-5 shadow-lg">
+                        <h3 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2 border-b border-slate-700/60 pb-3">
+                            <i class="fa-solid fa-calendar-week text-purple-400"></i> 每週挑戰任務 (獎勵 100 積分)
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+                                <div>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="font-semibold text-sm text-slate-200">有氧運動 (Cardio)</span>
+                                        <span id="weekly-cardio-count" class="text-xs font-mono text-purple-300 bg-purple-950 px-2 py-0.5 rounded border border-purple-800">0 / 3 次</span>
+                                    </div>
+                                    <p class="text-xs text-slate-400">每週需完成 3 次有氧訓練。</p>
+                                </div>
+                                <button onclick="incrementWeeklyTask('cardio')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-purple-300 font-medium text-xs rounded-lg border border-slate-700 transition cursor-pointer">
+                                    + 記錄一次有氧
+                                </button>
+                            </div>
+
+                            <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+                                <div>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="font-semibold text-sm text-slate-200">肌力訓練 (Strength)</span>
+                                        <span id="weekly-strength-count" class="text-xs font-mono text-purple-300 bg-purple-950 px-2 py-0.5 rounded border border-purple-800">0 / 1 次</span>
+                                    </div>
+                                    <p class="text-xs text-slate-400">每週需完成 1 次肌力訓練。</p>
+                                </div>
+                                <button onclick="incrementWeeklyTask('strength')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-purple-300 font-medium text-xs rounded-lg border border-slate-700 transition cursor-pointer">
+                                    + 記錄一次肌力
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Repeatable Tasks Card -->
+                <div class="space-y-6">
+                    <div class="bg-rpg-card border border-rpg-border rounded-2xl p-5 shadow-lg">
+                        <h3 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2 border-b border-slate-700/60 pb-3">
+                            <i class="fa-solid fa-repeat text-emerald-400"></i> 重複性任務 (5~20 積分)
+                        </h3>
+                        <div class="space-y-3">
+                            <!-- 1. Exercise -->
+                            <div class="bg-slate-900/50 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                                <div>
+                                    <h4 class="font-semibold text-sm text-slate-200">運動鍛鍊</h4>
+                                    <p class="text-xs text-slate-400"><span id="repeat-exercise-time">20</span> 分鐘 / 次</p>
+                                    <span class="inline-block mt-1 text-[10px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-800">獎勵 15 Pt</span>
+                                </div>
+                                <button onclick="completeRepeatableTask('exercise', 15)" class="px-3 py-2 bg-emerald-600/80 hover:bg-emerald-600 text-white font-bold text-xs rounded-lg shadow transition cursor-pointer flex items-center gap-1">
+                                    <i class="fa-solid fa-plus"></i> 完成
+                                </button>
+                            </div>
+
+                            <!-- 2. Tidying -->
+                            <div class="bg-slate-900/50 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                                <div>
+                                    <h4 class="font-semibold text-sm text-slate-200">房間整理</h4>
+                                    <p class="text-xs text-slate-400"><span id="repeat-tidy-time">15</span> 分鐘 / 次</p>
+                                    <span class="inline-block mt-1 text-[10px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-800">獎勵 10 Pt</span>
+                                </div>
+                                <button onclick="completeRepeatableTask('tidy', 10)" class="px-3 py-2 bg-emerald-600/80 hover:bg-emerald-600 text-white font-bold text-xs rounded-lg shadow transition cursor-pointer flex items-center gap-1">
+                                    <i class="fa-solid fa-plus"></i> 完成
+                                </button>
+                            </div>
+
+                            <!-- 3. Reading -->
+                            <div class="bg-slate-900/50 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                                <div>
+                                    <h4 class="font-semibold text-sm text-slate-200">閱讀充電</h4>
+                                    <p class="text-xs text-slate-400"><span id="repeat-read-time">30</span> 分鐘 / 次</p>
+                                    <span class="inline-block mt-1 text-[10px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-800">獎勵 20 Pt</span>
+                                </div>
+                                <button onclick="completeRepeatableTask('read', 20)" class="px-3 py-2 bg-emerald-600/80 hover:bg-emerald-600 text-white font-bold text-xs rounded-lg shadow transition cursor-pointer flex items-center gap-1">
+                                    <i class="fa-solid fa-plus"></i> 完成
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Shop / Gacha Teaser -->
+                    <div class="bg-gradient-to-br from-amber-950/40 to-slate-900 border border-amber-800/40 rounded-2xl p-5 shadow-lg text-center">
+                        <div class="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center mx-auto mb-3 text-xl border border-amber-500/40">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        </div>
+                        <h4 class="font-bold text-amber-200">寶可夢精靈抽卡</h4>
+                        <p class="text-xs text-slate-300 mt-1 mb-4">收集全國圖鑑 1025 隻寶可夢，點擊下方前往轉蛋召喚所！</p>
+                        <button onclick="switchTab('gacha')" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm rounded-xl shadow transition cursor-pointer">
+                            前往抽卡 (100 Pt / 次)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Gacha Tab -->
+        <section id="tab-gacha" class="tab-content hidden space-y-6">
+            <div class="bg-rpg-card border border-rpg-border rounded-2xl p-6 shadow-xl text-center max-w-2xl mx-auto">
+                <div class="inline-flex p-3 bg-amber-500/20 text-amber-400 rounded-2xl mb-4 border border-amber-500/30">
+                    <i class="fa-solid fa-gift text-3xl"></i>
+                </div>
+                <h2 class="text-2xl font-extrabold text-slate-100">寶可夢轉蛋召喚所</h2>
+                <p class="text-sm text-slate-400 mt-1">每次消耗 <span class="text-amber-400 font-bold">100 積分</span> 隨機召喚 1 隻寶可夢！保證不重複，直到集齊全國圖鑑 1025 隻！</p>
+                
+                <div class="my-6 p-4 bg-slate-900/80 rounded-xl border border-slate-700 flex justify-around items-center">
+                    <div>
+                        <span class="text-xs text-slate-400 block">目前擁有積分</span>
+                        <span id="gacha-user-points" class="text-xl font-bold text-amber-400">0 Pt</span>
+                    </div>
+                    <div class="h-8 w-px bg-slate-700"></div>
+                    <div>
+                        <span class="text-xs text-slate-400 block">圖鑑收集進度</span>
+                        <span id="gacha-pokedex-progress" class="text-xl font-bold text-emerald-400">0 / 1025</span>
+                    </div>
+                </div>
+
+                <!-- Gacha Machine Action -->
+                <button onclick="performGachaDraw()" id="gacha-btn" class="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-extrabold text-lg rounded-xl shadow-lg transition transform active:scale-95 cursor-pointer flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> 消耗 100 積分抽卡
+                </button>
+            </div>
+
+            <!-- Last Drawn Result Showcase -->
+            <div id="gacha-result-card" class="bg-rpg-card border border-rpg-border rounded-2xl p-6 shadow-xl max-w-md mx-auto hidden text-center relative overflow-hidden">
+                <div class="absolute top-3 right-3 bg-amber-500/20 text-amber-300 text-xs px-2.5 py-1 rounded-full font-bold border border-amber-500/40">
+                    New Discovery!
+                </div>
+                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">召喚成功</h3>
+                <div id="drawn-pokemon-img-container" class="w-40 h-40 mx-auto my-3 bg-slate-900/80 rounded-2xl p-2 border border-slate-700 flex items-center justify-center relative">
+                    <div class="absolute inset-0 flex items-center justify-center animate-pulse text-slate-600" id="drawn-loading">
+                        <i class="fa-solid fa-spinner fa-spin text-2xl"></i>
+                    </div>
+                    <img id="drawn-pokemon-img" src="" alt="Pokemon" class="w-full h-full object-contain relative z-10 hidden" onload="document.getElementById('drawn-loading').classList.add('hidden'); this.classList.remove('hidden');">
+                </div>
+                <h4 id="drawn-pokemon-name" class="text-2xl font-extrabold text-amber-300 capitalize">#??? 寶可夢</h4>
+                <p id="drawn-pokemon-id" class="text-xs text-slate-400 mt-1">圖鑑編號：N/A</p>
+            </div>
+        </section>
+
+        <!-- 3. Pokedex Tab -->
+        <section id="tab-pokedex" class="tab-content hidden space-y-6">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 bg-rpg-card border border-rpg-border rounded-2xl p-5 shadow-lg">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-book text-emerald-400"></i> 寶可夢圖鑑收藏
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">點擊卡片可查看詳情。已收集 <span id="pokedex-collected-num" class="text-emerald-400 font-bold">0</span> / 1025 隻。</p>
+                </div>
+                <div class="flex items-center gap-2 w-full md:w-auto">
+                    <input type="text" id="pokedex-search" oninput="renderPokedex()" placeholder="搜尋編號..." class="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 w-full md:w-64">
+                    <select id="pokedex-filter" onchange="renderPokedex()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
+                        <option value="all">全部精靈</option>
+                        <option value="collected">已解鎖</option>
+                        <option value="uncollected">未解鎖</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Pokedex Grid -->
+            <div id="pokedex-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+
+        <!-- 4. History Tab -->
+        <section id="tab-history" class="tab-content hidden space-y-6">
+            <div class="bg-rpg-card border border-rpg-border rounded-2xl p-6 shadow-xl max-w-4xl mx-auto space-y-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-blue-400"></i> 冒險日誌與歷史記錄
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">查看過去幾天的任務完成情況與飲食日誌摘要。</p>
+                </div>
+
+                <div class="space-y-4" id="history-logs-container">
+                    <!-- Dynamic logs -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Hidden Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-rpg-card border border-rpg-border rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-gear text-blue-400"></i> 冒險設定
+                </h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-100 cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">目標就寢時間 (Sleep Target)</label>
+                    <input type="time" id="setting-sleep-time" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">必做環境整潔時長 (分鐘)</label>
+                    <input type="number" id="setting-tidy-duration" min="1" max="120" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">重複性任務 - 運動時長 (分鐘)</label>
+                    <input type="number" id="setting-exercise-time" min="1" max="300" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">重複性任務 - 閱讀時長 (分鐘)</label>
+                    <input type="number" id="setting-read-time" min="1" max="300" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="closeSettingsModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-xl transition cursor-pointer">取消</button>
+                <button onclick="saveSettings()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl shadow transition cursor-pointer">儲存設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Message Modal (No alert() or confirm()) -->
+    <div id="message-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-rpg-card border border-rpg-border rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center space-y-4">
+            <div id="modal-icon" class="w-12 h-12 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto text-xl border border-blue-500/30">
+                <i class="fa-solid fa-bell"></i>
+            </div>
+            <h4 id="modal-title" class="font-bold text-lg text-slate-100">提示</h4>
+            <p id="modal-message" class="text-sm text-slate-300">內容信息</p>
+            <button onclick="closeMessageModal()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl transition cursor-pointer">確定</button>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // --- State Management ---
+        const STORAGE_KEY = 'pokemon_rpg_dashboard_state_v2';
+
+        let appState = {
+            points: 0,
+            exp: 0,
+            level: 1,
+            title: '新手訓練家',
+            titleRank: '初級',
+            collectedPokemon: [],
+            settings: {
+                sleepTime: '00:00', // 12:00 AM midnight
+                tidyDuration: 10,
+                exerciseDuration: 20,
+                readDuration: 30
+            },
+            dailyData: {
+                date: '',
+                sleepChecked: false,
+                tidyChecked: false,
+                diet: { 
+                    breakfast: '', 
+                    lunch: '', 
+                    dinner: '', 
+                    exerciseCalories: 0, 
+                    totalCalories: 0, 
+                    tdee: 0, 
+                    submitted: false 
+                },
+                weekly: { cardio: 0, strength: 0 },
+                rewardClaimed: false
+            },
+            history: []
+        };
+
+        // --- Initialization & 3:00 AM Reset Logic ---
+        function initApp() {
+            loadState();
+            checkAndResetDaily();
+            updateUI();
+            renderPokedex();
+            renderHistory();
+        }
+
+        function getTodayString() {
+            const now = new Date();
+            if (now.getHours() < 3) {
+                now.setDate(now.getDate() - 1);
+            }
+            return now.toISOString().split('T')[0];
+        }
+
+        function checkAndResetDaily() {
+            const todayStr = getTodayString();
+            if (appState.dailyData.date !== todayStr) {
+                if (appState.dailyData.date) {
+                    appState.history.unshift({ ...appState.dailyData });
+                    if (appState.history.length > 30) appState.history.pop();
+                }
+                appState.dailyData = {
+                    date: todayStr,
+                    sleepChecked: false,
+                    tidyChecked: false,
+                    diet: { breakfast: '', lunch: '', dinner: '', exerciseCalories: 0, totalCalories: 0, tdee: 0, submitted: false },
+                    weekly: { ...appState.dailyData.weekly }, // preserve weekly across days in same week
+                    rewardClaimed: false
+                };
+                saveState();
+            }
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    appState = { ...appState, ...parsed };
+                } catch(e) {
+                    console.error('Failed to load state', e);
+                }
+            }
+            if (!appState.dailyData.date) {
+                appState.dailyData.date = getTodayString();
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+        }
+
+        // --- UI Rendering & Navigation ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white', 'shadow');
+                btn.classList.add('bg-rpg-border', 'text-slate-300');
+            });
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-rpg-border', 'text-slate-300');
+                activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow');
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('user-points').innerText = appState.points;
+            document.getElementById('gacha-user-points').innerText = appState.points + ' Pt';
+            document.getElementById('user-exp').innerText = `${appState.exp} / ${appState.level * 100}`;
+            document.getElementById('user-level-badge').innerText = `Lv.${appState.level}`;
+            document.getElementById('user-title-name').innerText = appState.titleRank;
+            
+            const collectedCount = appState.collectedPokemon.length;
+            document.getElementById('pokedex-count').innerText = collectedCount;
+            document.getElementById('pokedex-collected-num').innerText = collectedCount;
+            document.getElementById('gacha-pokedex-progress').innerText = `${collectedCount} / 1025`;
+
+            document.getElementById('display-target-sleep').innerText = `${appState.settings.sleepTime} (12:00 AM前)`;
+            document.getElementById('display-target-tidy').innerText = appState.settings.tidyDuration;
+            document.getElementById('repeat-exercise-time').innerText = appState.settings.exerciseDuration;
+            document.getElementById('repeat-tidy-time').innerText = appState.settings.tidyDuration;
+            document.getElementById('repeat-read-time').innerText = appState.settings.readDuration;
+
+            document.getElementById('task-sleep').checked = appState.dailyData.sleepChecked;
+            document.getElementById('task-tidy').checked = appState.dailyData.tidyChecked;
+
+            if (appState.dailyData.diet.submitted) {
+                document.getElementById('diet-breakfast').value = appState.dailyData.diet.breakfast;
+                document.getElementById('diet-lunch').value = appState.dailyData.diet.lunch;
+                document.getElementById('diet-dinner').value = appState.dailyData.diet.dinner;
+                document.getElementById('diet-exercise-calories').value = appState.dailyData.diet.exerciseCalories || '';
+                document.getElementById('total-calories-display').innerText = appState.dailyData.diet.totalCalories;
+                document.getElementById('tdee-display').innerText = appState.dailyData.diet.tdee;
+            }
+
+            document.getElementById('weekly-cardio-count').innerText = `${appState.dailyData.weekly.cardio} / 3 次`;
+            document.getElementById('weekly-strength-count').innerText = `${appState.dailyData.weekly.strength} / 1 次`;
+
+            let completedMustDo = 0;
+            if (appState.dailyData.sleepChecked) completedMustDo++;
+            if (appState.dailyData.tidyChecked) completedMustDo++;
+            if (appState.dailyData.diet.submitted) {
+                if (appState.dailyData.diet.breakfast.trim()) completedMustDo++;
+                if (appState.dailyData.diet.lunch.trim()) completedMustDo++;
+                if (appState.dailyData.diet.dinner.trim()) completedMustDo++;
+                if (appState.dailyData.diet.totalCalories >= 0) completedMustDo++;
+            }
+
+            document.getElementById('must-do-progress-text').innerText = `${completedMustDo} / 6`;
+            const percent = (completedMustDo / 6) * 100;
+            document.getElementById('must-do-progress-bar').style.width = `${percent}%`;
+
+            const rewardSection = document.getElementById('reward-section');
+            if (completedMustDo === 6 && !appState.dailyData.rewardClaimed) {
+                rewardSection.classList.remove('hidden');
+            } else {
+                rewardSection.classList.add('hidden');
+            }
+        }
+
+        // --- Task Handlers ---
+        function handleMustDoChange() {
+            appState.dailyData.sleepChecked = document.getElementById('task-sleep').checked;
+            appState.dailyData.tidyChecked = document.getElementById('task-tidy').checked;
+            saveState();
+            updateUI();
+        }
+
+        function submitDietLog(event) {
+            event.preventDefault();
+            const b = document.getElementById('diet-breakfast').value;
+            const l = document.getElementById('diet-lunch').value;
+            const d = document.getElementById('diet-dinner').value;
+            const exCalInput = document.getElementById('diet-exercise-calories').value;
+            const exCal = exCalInput ? parseInt(exCalInput) : 0;
+
+            const extractCalories = (str) => {
+                const match = str.match(/\d+/);
+                return match ? parseInt(match[0]) : 400;
+            };
+
+            const calB = extractCalories(b);
+            const calL = extractCalories(l);
+            const calD = extractCalories(d);
+            const total = calB + calL + calD;
+            const tdee = Math.max(0, total - exCal);
+
+            appState.dailyData.diet = {
+                breakfast: b,
+                lunch: l,
+                dinner: d,
+                exerciseCalories: exCal,
+                totalCalories: total,
+                tdee: tdee,
+                submitted: true
+            };
+
+            saveState();
+            updateUI();
+            showCustomMessage('飲食記錄提交成功！', `總熱量：${total} kcal | TDEE (淨熱量)：${tdee} kcal`, 'fa-utensils');
+        }
+
+        function completeRepeatableTask(taskType, rewardPoints) {
+            addPoints(rewardPoints);
+            addExp(15);
+            showCustomMessage('任務完成！', `獲得了 ${rewardPoints} 積分與 15 經驗值！`, 'fa-check');
+        }
+
+        function incrementWeeklyTask(type) {
+            if (type === 'cardio') {
+                if (appState.dailyData.weekly.cardio < 3) {
+                    appState.dailyData.weekly.cardio++;
+                    checkWeeklyCompletion();
+                }
+            } else if (type === 'strength') {
+                if (appState.dailyData.weekly.strength < 1) {
+                    appState.dailyData.weekly.strength++;
+                    checkWeeklyCompletion();
+                }
+            }
+            saveState();
+            updateUI();
+            showCustomMessage('週任務進度更新', '成功記錄一次訓練！', 'fa-dumbbell');
+        }
+
+        function checkWeeklyCompletion() {
+            if (appState.dailyData.weekly.cardio >= 3 && appState.dailyData.weekly.strength >= 1 && !appState.dailyData.weekly.rewardClaimed) {
+                appState.dailyData.weekly.rewardClaimed = true;
+                addPoints(100);
+                addExp(50);
+                showCustomMessage('每週挑戰達成！', '恭喜完成所有每週訓練挑戰，獲得 100 積分大獎！', 'fa-trophy');
+            }
+        }
+
+        function claimDailyReward() {
+            if (appState.dailyData.rewardClaimed) return;
+            const randomBonus = Math.floor(Math.random() * 31) + 50;
+            appState.dailyData.rewardClaimed = true;
+            addPoints(randomBonus);
+            addExp(40);
+            saveState();
+            updateUI();
+            showCustomMessage('獎勵領取成功！', `恭喜獲得每日必做全勤獎勵：${randomBonus} 積分！`, 'fa-gift');
+            confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+        }
+
+        // --- Points, EXP & Leveling ---
+        function addPoints(amt) {
+            appState.points += amt;
+            saveState();
+            updateUI();
+        }
+
+        function addExp(amt) {
+            appState.exp += amt;
+            const reqExp = appState.level * 100;
+            if (appState.exp >= reqExp) {
+                appState.exp -= reqExp;
+                appState.level++;
+                updateUserTitle();
+                showCustomMessage('等級提升！', `恭喜升到 Lv.${appState.level}！解鎖新訓練家榮譽！`, 'fa-arrow-up');
+                confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+            }
+            saveState();
+            updateUI();
+        }
+
+        function updateUserTitle() {
+            if (appState.level >= 10) {
+                appState.title = '寶可夢大師';
+                appState.titleRank = '大師級';
+            } else if (appState.level >= 5) {
+                appState.title = '資深訓練家';
+                appState.titleRank = '精英級';
+            } else {
+                appState.title = '新手訓練家';
+                appState.titleRank = '初級';
+            }
+        }
+
+        // --- Gacha System (1025 Pokémon) ---
+        function performGachaDraw() {
+            const COST = 100;
+            if (appState.points < COST) {
+                showCustomMessage('積分不足', '需要 100 積分才能進行抽卡，快去完成任務吧！', 'fa-triangle-exclamation');
+                return;
+            }
+
+            if (appState.collectedPokemon.length >= 1025) {
+                showCustomMessage('圖鑑已全部集滿！', '太驚人了！你已經收集完全國圖鑑 1025 隻寶可夢！', 'fa-crown');
+                return;
+            }
+
+            appState.points -= COST;
+
+            let availableIds = [];
+            for (let i = 1; i <= 1025; i++) {
+                if (!appState.collectedPokemon.includes(i)) {
+                    availableIds.push(i);
+                }
+            }
+
+            const randomIndex = Math.floor(Math.random() * availableIds.length);
+            const pokemonId = availableIds[randomIndex];
+
+            appState.collectedPokemon.push(pokemonId);
+            saveState();
+            updateUI();
+            renderPokedex();
+
+            const resultCard = document.getElementById('gacha-result-card');
+            resultCard.classList.remove('hidden');
+            
+            const imgEl = document.getElementById('drawn-pokemon-img');
+            const nameEl = document.getElementById('drawn-pokemon-name');
+            const idEl = document.getElementById('drawn-pokemon-id');
+            const loadingEl = document.getElementById('drawn-loading');
+
+            loadingEl.classList.remove('hidden');
+            imgEl.classList.add('hidden');
+            imgEl.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemonId}.png`;
+            
+            idEl.innerText = `圖鑑編號：#${String(pokemonId).padStart(4, '0')}`;
+            nameEl.innerText = `#${pokemonId} 寶可夢召喚中...`;
+
+            fetch(`https://pokeapi.co/api/v2/pokemon-species/${pokemonId}`)
+                .then(res => res.json())
+                .then(data => {
+                    const zhNameObj = data.names.find(n => n.language.name === 'zh-Hant' || n.language.name === 'zh-Hans');
+                    const displayName = zhNameObj ? zhNameObj.name : data.name;
+                    nameEl.innerText = displayName;
+                })
+                .catch(() => {
+                    nameEl.innerText = `寶可夢 #${pokemonId}`;
+                });
+
+            confetti({
+                particleCount: 120,
+                spread: 100,
+                origin: { y: 0.5 }
+            });
+        }
+
+        // --- Pokedex Tab Rendering ---
+        function renderPokedex() {
+            const grid = document.getElementById('pokedex-grid');
+            const search = document.getElementById('pokedex-search').value.toLowerCase();
+            const filter = document.getElementById('pokedex-filter').value;
+            
+            grid.innerHTML = '';
+
+            for (let i = 1; i <= 1025; i++) {
+                const isCollected = appState.collectedPokemon.includes(i);
+
+                if (filter === 'collected' && !isCollected) continue;
+                if (filter === 'uncollected' && isCollected) continue;
+
+                if (search && !String(i).includes(search)) {
+                    continue;
+                }
+
+                const card = document.createElement('div');
+                card.className = `rounded-xl p-3 border flex flex-col items-center justify-center relative transition ${
+                    isCollected 
+                        ? 'bg-slate-900/80 border-emerald-500/40 shadow-md hover:border-emerald-400 cursor-pointer' 
+                        : 'bg-slate-950/40 border-slate-800/60 opacity-60'
+                }`;
+
+                card.innerHTML = `
+                    <span class="absolute top-2 left-2 text-[10px] font-mono ${isCollected ? 'text-emerald-400' : 'text-slate-600'}">#${String(i).padStart(4, '0')}</span>
+                    <div class="w-20 h-20 my-2 flex items-center justify-center">
+                        ${isCollected 
+                            ? `<img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${i}.png" alt="pokemon" class="w-full h-full object-contain filter drop-shadow" loading="lazy" onerror="this.src='https://placehold.co/80x80/1e293b/64748b?text=✨'">`
+                            : `<div class="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center text-slate-700"><i class="fa-solid fa-question"></i></div>`
+                        }
+                    </div>
+                    <span class="text-xs font-semibold ${isCollected ? 'text-slate-200' : 'text-slate-600'}">${isCollected ? '已解鎖' : '未解鎖'}</span>
+                `;
+
+                if (isCollected) {
+                    card.onclick = () => showCustomMessage(`寶可夢 #${i}`, `您已成功解鎖編號 #${i} 的寶可夢！`, 'fa-shield-halved');
+                }
+
+                grid.appendChild(card);
+            }
+        }
+
+        // --- History Tab Rendering ---
+        function renderHistory() {
+            const container = document.getElementById('history-logs-container');
+            container.innerHTML = '';
+
+            const logs = appState.history;
+            if (logs.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10 text-slate-500">
+                        <i class="fa-solid fa-box-open text-3xl mb-2"></i>
+                        <p class="text-sm">目前尚無歷史記錄，明天過後將自動歸檔。</p>
+                    </div>
+                `;
+                return;
+            }
+
+            logs.forEach(log => {
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-3';
+                
+                const breakfastText = log.diet.breakfast ? log.diet.breakfast : '未記錄';
+                const lunchText = log.diet.lunch ? log.diet.lunch : '未記錄';
+                const dinnerText = log.diet.dinner ? log.diet.dinner : '未記錄';
+                const exBurn = log.diet.exerciseCalories !== undefined ? log.diet.exerciseCalories : 0;
+                const totalCal = log.diet.totalCalories !== undefined ? log.diet.totalCalories : 0;
+                const tdeeVal = log.diet.tdee !== undefined ? log.diet.tdee : totalCal;
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <span class="font-bold text-sm text-blue-400"><i class="fa-solid fa-calendar mr-1.5"></i> ${log.date}</span>
+                        <span class="text-xs px-2 py-0.5 rounded ${log.rewardClaimed ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400'}">
+                            ${log.rewardClaimed ? '全勤獎勵已領取' : '未全勤'}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-300">
+                        <div>睡眠檢查: <span class="${log.sleepChecked ? 'text-emerald-400 font-bold' : 'text-slate-500'}">${log.sleepChecked ? '已達成' : '未達成'}</span></div>
+                        <div>整潔檢查: <span class="${log.tidyChecked ? 'text-emerald-400 font-bold' : 'text-slate-500'}">${log.tidyChecked ? '已達成' : '未達成'}</span></div>
+                    </div>
+                    <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80 space-y-1.5 text-xs text-slate-300">
+                        <div class="font-semibold text-emerald-400 mb-1"><i class="fa-solid fa-utensils mr-1"></i> 當天飲食與運動日誌</div>
+                        <div>早餐：${breakfastText}</div>
+                        <div>午餐：${lunchText}</div>
+                        <div>晚餐：${downtText = dinnerText}</div>
+                        <div>運動消耗：<span class="text-blue-400 font-semibold">${exBurn} kcal</span></div>
+                        <div class="flex gap-4 pt-1 border-t border-slate-800 text-slate-200">
+                            <span>總熱量：<strong class="text-amber-400">${totalCal} kcal</strong></span>
+                            <span>TDEE (淨熱量)：<strong class="text-emerald-400">${tdeeVal} kcal</strong></span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // --- Settings Modal ---
+        function openSettingsModal() {
+            document.getElementById('setting-sleep-time').value = appState.settings.sleepTime;
+            document.getElementById('setting-tidy-duration').value = appState.settings.tidyDuration;
+            document.getElementById('setting-exercise-time').value = appState.settings.exerciseDuration;
+            document.getElementById('setting-read-time').value = appState.settings.readDuration;
+            document.getElementById('settings-modal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function saveSettings() {
+            appState.settings.sleepTime = document.getElementById('setting-sleep-time').value || '00:00';
+            appState.settings.tidyDuration = parseInt(document.getElementById('setting-tidy-duration').value) || 10;
+            appState.settings.exerciseDuration = parseInt(document.getElementById('setting-exercise-time').value) || 20;
+            appState.settings.readDuration = parseInt(document.getElementById('setting-read-time').value) || 30;
+
+            saveState();
+            updateUI();
+            closeSettingsModal();
+            showCustomMessage('設定已更新', '您的冒險參數已成功儲存！', 'fa-gear');
+        }
+
+        // --- Custom Message Modal ---
+        function showCustomMessage(title, message, iconClass = 'fa-bell') {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('modal-icon').innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
+            document.getElementById('message-modal').classList.remove('hidden');
+        }
+
+        function closeMessageModal() {
+            document.getElementById('message-modal').classList.add('hidden');
+        }
+
+        // Run on load
+        window.onload = initApp;
+    </script>
+</body>
+</html>
